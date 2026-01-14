@@ -8,7 +8,7 @@ namespace VRG.ChapterFramework.Editor
     public class ChapterFrameworkEditor
     {
         [MenuItem("Tools/Chapter Framework/Setup Initial Scene Setup")]
-        private static void SetupChapterFramework()
+        public static void SetupChapterFramework()
         {
             GameObject chapterParent = new GameObject("Chapters Manager");
             Selection.activeGameObject = chapterParent; 
@@ -21,7 +21,7 @@ namespace VRG.ChapterFramework.Editor
         }
 
         [MenuItem("Tools/Chapter Framework/Add a New Chapter")]
-        private static void CreateOrAddNewChapter()
+        public static void CreateOrAddNewChapter()
         {
             ChaptersManager manager = GameObject.FindObjectOfType<ChaptersManager>();
 

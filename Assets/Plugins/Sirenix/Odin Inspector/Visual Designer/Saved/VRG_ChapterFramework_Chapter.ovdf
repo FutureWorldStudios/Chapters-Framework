@@ -1,0 +1,11 @@
+OVDF v1.1
+VRG.ChapterFramework.Chapter, Assembly-CSharp
+MetaGuid:ba61e1316beb79348976bada6c209cfa
+
+# OnForceReset
+Position: $root:3
++ [Sirenix.OdinInspector.ListDrawerSettingsAttribute]
++ [Sirenix.OdinInspector.TypeFilterAttribute]
+
+# _phases
++ [Sirenix.OdinInspector.PropertyTooltipAttribute]

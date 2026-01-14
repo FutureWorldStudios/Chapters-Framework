@@ -1,17 +1,29 @@
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UIElements;
+using VRG.ChapterFramework.Editor;
+using VRG.ChapterFramework; 
+using System;   
 
 public class ChapterFrameworkWindow : EditorWindow
 {
-    [MenuItem("Chapters Framework/Create Chapters Setup")]
 
+    [MenuItem("Chapters Framework/Create Chapters Setup")]
     public static void ShowWindow()
     {
         EditorWindow.GetWindow(typeof(ChapterFrameworkWindow));
+
+        ChapterFrameworkWindow wnd = GetWindow<ChapterFrameworkWindow>();
+        wnd.titleContent = new GUIContent("Chapters Framework");
     }
 
-    void OnGUI()
+    public void CreateGUI()
     {
-        // The actual window code goes here
+       
+    }
+
+    public void OnGUI()
+    {
+       
     }
 }

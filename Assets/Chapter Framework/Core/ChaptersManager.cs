@@ -1,6 +1,10 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Sirenix.OdinInspector.Editor;
+using Sirenix.OdinInspector;
+using Sirenix.Serialization;
+
 
 namespace VRG.ChapterFramework
 {
@@ -9,7 +13,6 @@ namespace VRG.ChapterFramework
         [SerializeField] private List<Chapter> chapters = new List<Chapter>();
 
         public static Action<int> OnChapterBegun;
-
         public void AddChapter(Chapter chapter)
         {
             if (!chapters.Contains(chapter))

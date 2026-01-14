@@ -1,0 +1,11 @@
+OVDF v1.1
+VRG.ChapterFramework.ChaptersManager, Assembly-CSharp
+MetaGuid:fd1baa24e4ed4cd428979e19d9bf36ab
+
+# chapters
+Position: $KdDacvo55hAjfGJ2ZCEgMc:1
++ [Sirenix.OdinInspector.ButtonAttribute]
+	Name = "Test"
+
+# Test
+Position: $KdDacvo55hAjfGJ2ZCEgMc:0
