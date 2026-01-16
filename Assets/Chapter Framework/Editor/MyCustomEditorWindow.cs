@@ -1,12 +1,15 @@
-using Sirenix.OdinInspector;
+﻿using Sirenix.OdinInspector;
 using Sirenix.OdinInspector.Editor;
 using Sirenix.Utilities.Editor;
 using System;
-using System.Collections.Generic;   
-using Unity.VisualScripting;
-using UnityEditor;
-using UnityEngine;
+using System.Collections.Generic;  
 using System.IO;
+using System.Reflection;
+using System.Linq;
+using System.Threading.Tasks;
+using UnityEditor;
+using UnityEditor.Callbacks;
+using UnityEngine;
 
 namespace VRG.ChapterFramework.Editor
 {
@@ -21,11 +24,20 @@ namespace VRG.ChapterFramework.Editor
         private const string _milestonePhaseTemplateName = "MilestonePhaseTemplate.cs.txt";
         private const string _milestoneTemplateName = "MilestoneTemplate.cs.txt";
 
+
+        private static bool _canAttachScripts;
+        private static GameObject _chapterManagerObject;
+
+        private static string AllowSetupKey = "AllowSetupKey";
+        private static string ChaptersJSONKey = "ChaptersJSONKey";
+
         [BoxGroup("Control Panel"), HideLabel, EnumToggleButtons, OnValueChanged("LoadConfiguration")]
         public ChapterWindowMenu Menu;
 
         [ShowIf("Menu", ChapterWindowMenu.Configuration), BoxGroup("Control Panel")]
         public Chapters ChapterConfig;
+
+        private static event Action<Chapters> OnGenerateHierarchy;
 
         public enum ChapterWindowMenu
         {
@@ -57,12 +69,13 @@ namespace VRG.ChapterFramework.Editor
             //{
             //    SaveConfiguration();
             //}
-            //if (SirenixEditorGUI.ToolbarButton("Load"))
-            //{
-            //    LoadConfiguration();
-            //}
+            if (SirenixEditorGUI.ToolbarButton("Load"))
+            {
+                Debug.Log( GetTypeByName("Milestone1") == null);
+            }
             if (SirenixEditorGUI.ToolbarButton("Create Setup Now"))
             {
+                Debug.Log("PRESSED");
                 GenerateScripts();
             }
 
@@ -74,7 +87,7 @@ namespace VRG.ChapterFramework.Editor
 
         #region Private Methods
 
-        private void GenerateScripts()
+        private async void GenerateScripts()
         {
             string templatesPath = Path.Combine(Application.dataPath, "Chapter Framework", "Editor", "Templates");
             
@@ -87,8 +100,17 @@ namespace VRG.ChapterFramework.Editor
 
             Chapters chapters = ChapterConfig;
 
+           
+            await Task.Delay(1000);
+
             if (chapters != null)
             {
+                // Store config for the static reload callback
+                string chaptersJson = JsonUtility.ToJson(ChapterConfig);
+                SessionState.SetInt(AllowSetupKey, 1);
+                SessionState.SetString(ChaptersJSONKey, chaptersJson);
+
+
                 foreach (var chapterConfig in ChapterConfig.Data)
                 {
                     if (chapterConfig != null)
@@ -121,9 +143,159 @@ namespace VRG.ChapterFramework.Editor
                             }
                         }
                     }
+
+
+                }
+
+               
+                OnGenerateHierarchy += AutoGenerateHierarchy;   
+            }
+        }
+
+    private static Type GetTypeByName(string name)
+    {
+        name = name.Replace(" ", "");
+
+        Type type = Type.GetType(name, throwOnError: false);
+
+        if (type != null)
+        {          
+            return type;
+        }
+        foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            try
+            {
+                type = assembly.GetType(name, throwOnError: false, ignoreCase: false);
+                if (type != null)
+                {                   
+                    return type;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[GetTypeByName] Failed querying assembly '{assembly.GetName().Name}': {ex.Message}");
+            }
+        }
+
+            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                Type[] types;
+
+                try
+                {
+                    types = assembly.GetTypes();
+                }
+                catch (ReflectionTypeLoadException e)
+                {
+                    types = e.Types.Where(t => t != null).ToArray();
+                    Debug.LogWarning($"[GetTypeByName] Partial type load in '{assembly.GetName().Name}'. Continuing with available types.");
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning($"[GetTypeByName] Skipping assembly '{assembly.GetName().Name}");
+                    continue;
+                }
+
+                foreach (var t in types)
+                {
+                    if (t.Name == name)
+                    {
+                        Debug.LogWarning(
+                            $"[GetTypeByName] FOUND via short-name match {t.FullName} "
+                        );
+                        return t;
+                    }
+                }
+            }
+
+            return null;
+    }
+
+
+
+    [UnityEditor.Callbacks.DidReloadScripts]
+        private static void OnScriptsReloaded()
+        {
+            Debug.Log("Trying to auto generate, Allowed? " + PlayerPrefs.GetInt("AllowSetup"));
+          
+            if (SessionState.GetInt(AllowSetupKey, 0) == 1)
+            {
+                SessionState.SetInt(AllowSetupKey, 0);
+
+                string json = SessionState.GetString(ChaptersJSONKey, "");
+
+                Debug.Log("retrieved json: " + json);
+
+                if (json != string.Empty)
+                {
+                    Chapters config = JsonUtility.FromJson<Chapters>(json);
+
+                    Debug.Log("Trying to auto generate");
+
+                    if(config != null)
+                    AutoGenerateHierarchy(config);
+                }
+            }
+
+            _canAttachScripts = false;
+        }
+
+        private static GameObject GenerateAndAddComponent(string gameObjectName, Type type)
+        {
+            GameObject go = new GameObject(gameObjectName);
+            go.AddComponent(type); 
+            
+            return go;
+        }
+
+        private static GameObject GenerateAndAddComponent(string gameObjectName, string typeName, Transform parent = null)
+        {
+            GameObject go = new GameObject(gameObjectName);
+            Type type = GetTypeByName(typeName);
+
+            if (parent != null)
+            {
+                go.transform.SetParent(parent);
+            }
+
+            if (type == null) {
+                Debug.Log(type);
+                    }
+            if (type != null)
+                go.AddComponent(type);
+
+            return go;  
+        }
+
+        private static async void AutoGenerateHierarchy(Chapters chapters)
+        {
+            OnGenerateHierarchy -= AutoGenerateHierarchy;
+
+            Debug.Log("Auto generating now!");
+
+
+            await Task.Delay(5000);
+
+            foreach (var chapter in chapters.Data)
+            {
+                Transform t_chapter = GenerateAndAddComponent(chapter.ChapterName, chapter.ChapterName).transform;
+
+                foreach (var phase in chapter.Phases)
+                {
+                   Transform t_phase = GenerateAndAddComponent(phase.PhaseName, phase.PhaseName, t_chapter).transform;
+
+                    if (phase.UseMilestones)
+                    {
+                        foreach (var milestone in phase.Milestones)
+                        {
+                            GenerateAndAddComponent(milestone, milestone, t_phase);
+                        }
+                    }
                 }
             }
         }
+
 
         private string ReplaceClassName(string template, string className)
         {
@@ -228,7 +400,9 @@ namespace VRG.ChapterFramework.Editor
             {
                 Debug.LogError($"Failed to create class file: {e.Message}\nPath: {fileFullPath}");
             }
+
         }
+
         #endregion
 
     }
