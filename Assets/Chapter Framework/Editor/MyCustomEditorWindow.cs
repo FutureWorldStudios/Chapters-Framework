@@ -281,15 +281,45 @@ namespace VRG.ChapterFramework.Editor
             {
                 Transform t_chapter = GenerateAndAddComponent(chapter.ChapterName, chapter.ChapterName).transform;
 
+
                 foreach (var phase in chapter.Phases)
                 {
-                   Transform t_phase = GenerateAndAddComponent(phase.PhaseName, phase.PhaseName, t_chapter).transform;
+                    Transform t_phase = GenerateAndAddComponent(phase.PhaseName, phase.PhaseName, t_chapter).transform;
 
                     if (phase.UseMilestones)
                     {
                         foreach (var milestone in phase.Milestones)
                         {
                             GenerateAndAddComponent(milestone, milestone, t_phase);
+                        }
+
+                        MilestonePhase ph = t_phase.GetComponent<MilestonePhase>();
+
+                        if (ph != null)
+                        {
+                            Milestone[] milestones = t_phase.GetComponentsInChildren<Milestone>();
+
+                            if(milestones.Length > 0)
+                            {
+                                foreach(var milestone in milestones)
+                                    ph.AddMilestone(milestone); 
+                            }
+                        }
+                    }
+
+                  
+                }
+
+                Chapter ch = t_chapter.GetComponent<Chapter>();
+
+                if (ch != null)
+                {
+                    Phase[] phases = t_chapter.GetComponentsInChildren<Phase>();
+                    if (phases.Length > 0)
+                    {
+                        foreach (Phase phase in phases)
+                        {
+                            ch.AddPhase(phase);
                         }
                     }
                 }
