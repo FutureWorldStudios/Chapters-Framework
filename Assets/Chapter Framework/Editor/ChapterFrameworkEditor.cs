@@ -55,7 +55,120 @@ namespace VRG.ChapterFramework.Editor
             ChapterFrameworkEditor window = GetWindow<ChapterFrameworkEditor>();
             window.titleContent = new GUIContent("Chapters Framework");
             window.Show();
-        } 
+        }
+
+        [MenuItem("GameObject/Chapters Framework/Add New Chapter", false, 0)]
+        private static void AddNewChapter()
+        {
+            LogSelectedTransformName();
+            if (Selection.activeGameObject != null)
+            {
+                GameObject selectedObject = Selection.activeGameObject;
+                Chapter newChapter = selectedObject.AddComponent<Chapter>();
+                Debug.Log("Added Chapter component to: " + selectedObject.name);
+
+                ChaptersManager chaptersManager = GameObject.FindObjectOfType<ChaptersManager>();
+                if (chaptersManager != null)
+                {
+                    chaptersManager.AddChapter(newChapter);
+                    Debug.Log("Registered new Chapter with ChaptersManager.");
+                }
+                else
+                {
+                    Debug.LogWarning("No ChaptersManager found in the scene. Please add one to manage chapters.");
+                }
+            }
+            else
+            {
+                Debug.LogWarning("No GameObject selected. Please select a GameObject to add a Chapter component.");
+            }
+        }
+
+        [MenuItem("GameObject/Chapters Framework/Add New Phase", false, 0)]
+        private static void AddNewPhase()
+        {
+            LogSelectedTransformName();
+            if (Selection.activeGameObject != null)
+            {
+                GameObject selectedObject = Selection.activeGameObject;
+                Phase newPhase = selectedObject.AddComponent<Phase>();
+                Debug.Log("Added Phase component to: " + selectedObject.name);
+                Chapter parentChapter = selectedObject.GetComponent<Chapter>();
+                if (parentChapter != null)
+                {
+                    parentChapter.AddPhase(newPhase);
+                    Debug.Log("Registered new Phase with parent Chapter.");
+                }
+                else
+                {
+                    Debug.LogWarning("No parent Chapter found. Please ensure the Phase is added under a Chapter GameObject.");
+                }
+            }
+            else
+            {
+                Debug.LogWarning("No GameObject selected. Please select a GameObject to add a Phase component.");
+            }
+        }
+
+        [MenuItem("GameObject/Chapters Framework/Add New Milestone Phase", false, 0)]
+        private static void AddNewMilestonePhase()
+        {
+            LogSelectedTransformName();
+            if (Selection.activeGameObject != null)
+            {
+                GameObject selectedObject = Selection.activeGameObject;
+                MilestonePhase newMilestonePhase = selectedObject.AddComponent<MilestonePhase>();
+                Debug.Log("Added MilestonePhase component to: " + selectedObject.name);
+                Chapter parentChapter = selectedObject.GetComponent<Chapter>();
+                if (parentChapter != null)
+                {
+                    parentChapter.AddPhase(newMilestonePhase);
+                    Debug.Log("Registered new MilestonePhase with parent Chapter.");
+                }
+                else
+                {
+                    Debug.LogWarning("No parent Chapter found. Please ensure the MilestonePhase is added under a Chapter GameObject.");
+                }
+            }
+            else
+            {
+                Debug.LogWarning("No GameObject selected. Please select a GameObject to add a MilestonePhase component.");
+            }
+        }
+
+        [MenuItem("GameObject/Chapters Framework/Add New Milestone", false, 0)]
+        private static void AddNewMilestone()
+        {
+            LogSelectedTransformName();
+            if (Selection.activeGameObject != null)
+            {
+                GameObject selectedObject = Selection.activeGameObject;
+                Milestone newMilestone = selectedObject.AddComponent<Milestone>();
+                Debug.Log("Added Milestone component to: " + selectedObject.name);
+                MilestonePhase parentMilestonePhase = selectedObject.GetComponent<MilestonePhase>();
+                if (parentMilestonePhase != null)
+                {
+                    parentMilestonePhase.AddMilestone(newMilestone);
+                    Debug.Log("Registered new Milestone with parent MilestonePhase.");
+                }
+                else
+                {
+                    Debug.LogWarning("No parent MilestonePhase found. Please ensure the Milestone is added under a MilestonePhase GameObject.");
+                }
+            }
+            else
+            {
+                Debug.LogWarning("No GameObject selected. Please select a GameObject to add a Milestone component.");
+            }
+        }   
+
+        static void LogSelectedTransformName()
+        {
+            if (Selection.activeGameObject != null)
+            {
+                Debug.Log("Selected object name: " + Selection.activeGameObject.name);
+            }
+        }
         #endregion
 
         #region Unity Methods
