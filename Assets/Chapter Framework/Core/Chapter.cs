@@ -58,7 +58,7 @@ namespace VRG.ChapterFramework
             //Reset all phases
         }
 
-        public void AddPhase(Phase phase)
+        public void RegisterPhase(Phase phase)
         {
             if (!_phases.Contains(phase))
             {

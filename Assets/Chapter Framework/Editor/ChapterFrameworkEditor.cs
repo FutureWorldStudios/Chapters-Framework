@@ -24,13 +24,16 @@ namespace VRG.ChapterFramework.Editor
         private const string _phaseTemplateName = "PhaseTemplate.cs.txt";
         private const string _milestonePhaseTemplateName = "MilestonePhaseTemplate.cs.txt";
         private const string _milestoneTemplateName = "MilestoneTemplate.cs.txt";
-
+        private const string _componentTemplateName = "ComponentTemplate.cs.txt";
 
         private static bool _canAttachScripts;
         private static GameObject _chapterManagerObject;
 
         private static string AllowSetupKey = "AllowSetupKey";
         private static string ChaptersJSONKey = "ChaptersJSONKey";
+        private static string AddComponentToMilestoneKey = "AddComponentToMilestoneKey";
+        private static string AddComponentToPhaseKey = "AddComponentToPhaseKey";
+        private static string ComponentTypeNameKey = "ComponentTypeNameKey";
 
         [BoxGroup("Control Panel"), HideLabel, EnumToggleButtons, OnValueChanged("LoadConfiguration")]
         public ChapterWindowMenu Menu;
@@ -57,6 +60,39 @@ namespace VRG.ChapterFramework.Editor
             window.Show();
         }
 
+        [MenuItem("GameObject/Chapters Framework/Add New Default Component", false, 0)]
+        private static void AddNewComponent()
+        {
+            LogSelectedTransformName();
+            if (Selection.activeGameObject != null)
+            {
+                GameObject selectedObject = Selection.activeGameObject;
+
+                if (selectedObject.GetComponent<Phase>() == null && 
+                    selectedObject.GetComponent<Milestone>() == null)
+                    return;
+
+                GameObject newComponent = new GameObject("New Component");
+                newComponent.transform.SetParent(selectedObject.transform);
+
+                Debug.Log("Added new component GameObject under: " + selectedObject.name);
+
+                Component component = newComponent.AddComponent<Component>();
+
+                selectedObject.GetComponent<Phase>().RegisterComponent(component);
+            }
+            else
+            {
+                Debug.LogWarning("No GameObject selected. Please select a GameObject to add components.");
+            }
+        }
+
+        [MenuItem("GameObject/Chapters Framework/Add New Component", false, 0)]
+        private static void AddNewCustomComponent()
+        {
+            ComponentEditor.OpenWindow();   
+        }
+
         [MenuItem("GameObject/Chapters Framework/Add New Chapter", false, 0)]
         private static void AddNewChapter()
         {
@@ -70,7 +106,7 @@ namespace VRG.ChapterFramework.Editor
                 ChaptersManager chaptersManager = GameObject.FindObjectOfType<ChaptersManager>();
                 if (chaptersManager != null)
                 {
-                    chaptersManager.AddChapter(newChapter);
+                    chaptersManager.RegisterChapter(newChapter);
                     Debug.Log("Registered new Chapter with ChaptersManager.");
                 }
                 else
@@ -96,7 +132,7 @@ namespace VRG.ChapterFramework.Editor
                 Chapter parentChapter = selectedObject.GetComponent<Chapter>();
                 if (parentChapter != null)
                 {
-                    parentChapter.AddPhase(newPhase);
+                    parentChapter.RegisterPhase(newPhase);
                     Debug.Log("Registered new Phase with parent Chapter.");
                 }
                 else
@@ -122,7 +158,7 @@ namespace VRG.ChapterFramework.Editor
                 Chapter parentChapter = selectedObject.GetComponent<Chapter>();
                 if (parentChapter != null)
                 {
-                    parentChapter.AddPhase(newMilestonePhase);
+                    parentChapter.RegisterPhase(newMilestonePhase);
                     Debug.Log("Registered new MilestonePhase with parent Chapter.");
                 }
                 else
@@ -148,7 +184,7 @@ namespace VRG.ChapterFramework.Editor
                 MilestonePhase parentMilestonePhase = selectedObject.GetComponent<MilestonePhase>();
                 if (parentMilestonePhase != null)
                 {
-                    parentMilestonePhase.AddMilestone(newMilestone);
+                    parentMilestonePhase.RegisterMilestone(newMilestone);
                     Debug.Log("Registered new Milestone with parent MilestonePhase.");
                 }
                 else
@@ -364,6 +400,8 @@ namespace VRG.ChapterFramework.Editor
                 }
             }
 
+            TryAutoAddComponentToPhase();
+
             _canAttachScripts = false;
         }
 
@@ -431,7 +469,7 @@ namespace VRG.ChapterFramework.Editor
                             if(milestones.Length > 0)
                             {
                                 foreach(var milestone in milestones)
-                                    ph.AddMilestone(milestone); 
+                                    ph.RegisterMilestone(milestone); 
                             }
                         }
                     }
@@ -448,19 +486,71 @@ namespace VRG.ChapterFramework.Editor
                     {
                         foreach (Phase phase in phases)
                         {
-                            ch.AddPhase(phase);
+                            ch.RegisterPhase(phase);
                         }
                     }
                 }
 
                 if (chaptersManager != null)
                 {
-                    chaptersManager.AddChapter(t_chapter.GetComponent<Chapter>());
+                    chaptersManager.RegisterChapter(t_chapter.GetComponent<Chapter>());
                 }
             }
         }
 
+        private static async void TryAutoAddComponentToPhase()
+        {
+            await Task.Delay(4000);
 
+            GameObject selectedObject = UnityEditor.Selection.activeGameObject;
+
+            if (SessionState.GetInt(AddComponentToPhaseKey, 0) == 1)
+            {
+                SessionState.SetInt(AddComponentToPhaseKey, 0);
+                string componentName = SessionState.GetString(ComponentTypeNameKey, "");
+                SessionState.SetString(ComponentTypeNameKey, "");
+
+                if (selectedObject != null)
+                {
+                    Phase phase = selectedObject.GetComponent<Phase>();
+
+                    if(phase != null && phase is not MilestonePhase && componentName != "")
+                    {
+                        GameObject componentObject = GenerateAndAddComponent(componentName, componentName, phase.transform);
+
+                        Component component = componentObject.GetComponent<Component>();    
+                        if (component != null)
+                        {
+                            phase.RegisterComponent(component);
+                        }
+                    }
+                }
+            }
+            else if(SessionState.GetInt(AddComponentToMilestoneKey, 0) == 1)
+            {
+                SessionState.SetInt(AddComponentToMilestoneKey, 0);
+                string componentName = SessionState.GetString(ComponentTypeNameKey, "");
+
+                SessionState.SetString(ComponentTypeNameKey, "");
+
+                if(selectedObject != null)
+                {
+                    Milestone milestone = selectedObject.GetComponent<Milestone>();
+
+                    if(milestone != null && componentName != "")
+                    {
+                        GameObject componentObject = GenerateAndAddComponent(componentName, componentName, milestone.transform);
+                        Component component = componentObject.GetComponent<Component>();
+
+                        if (component != null)
+                        {
+                            milestone.GetComponentInParent<Phase>().RegisterComponent(component);
+                        }
+                    }
+                }
+            }
+        }
+            
         private string ReplaceClassName(string template, string className)
         {
             return template.Replace("#CHAPTER_NAME#", className.Replace(" ", ""));
@@ -479,6 +569,11 @@ namespace VRG.ChapterFramework.Editor
         private string ReplaceMilestonePhaseName(string template, string phaseName)
         {
             return template.Replace("#MILESTONEPHASE_NAME#", phaseName.Replace(" ", ""));
+        }
+
+        private string ReplaceComponentName(string template, string componentName)
+        {
+            return template.Replace("#COMPONENT_NAME#", componentName.Replace(" ", ""));
         }
 
         private void SaveConfiguration()
@@ -565,6 +660,53 @@ namespace VRG.ChapterFramework.Editor
                 Debug.LogError($"Failed to create class file: {e.Message}\nPath: {fileFullPath}");
             }
 
+        }
+
+        #endregion
+
+        #region Public Static Methods
+
+        public void AddComponentToPhase(string component)
+        {
+            if (component != null)
+            {
+                SessionState.SetInt(AddComponentToPhaseKey, 1);
+                SessionState.SetString(ComponentTypeNameKey, component);
+
+                GenerateComponentScript(component);
+            }
+            else
+            {
+                Debug.LogWarning("Phase or Component is null. Cannot add component to phase.");
+            }
+        }
+
+        public void AddComponentToMilestone(string component)
+        {
+            if (component != null)
+            {
+                SessionState.SetInt(AddComponentToMilestoneKey, 1);
+                SessionState.SetString(ComponentTypeNameKey, component);
+
+                GenerateComponentScript(component);
+            }
+            else
+            {
+                Debug.LogWarning("Milestone or Component is null. Cannot add component to milestone.");
+            }
+        }
+
+        private void GenerateComponentScript(string componentName)
+        {
+            string templatesPath = Path.Combine(Application.dataPath, "Chapter Framework", "Editor", "Templates");
+            string scriptsPath = Path.Combine(Application.dataPath, "Chapter Framework", "Scripts");
+            string componentTemplate = ReadFile(Path.Combine(templatesPath, _componentTemplateName));
+
+            if(componentTemplate != null && componentTemplate != "")
+            {
+                string componentContent = ReplaceComponentName(componentTemplate, componentName);
+                CreateClassFile(scriptsPath, componentName, componentContent);
+            }
         }
 
         #endregion

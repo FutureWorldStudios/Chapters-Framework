@@ -20,7 +20,7 @@ namespace VRG.ChapterFramework
 
         #region Public Methods
 
-        public void AddMilestone(Milestone milestone)
+        public void RegisterMilestone(Milestone milestone)
         {
             if(_milestones == null)
             {

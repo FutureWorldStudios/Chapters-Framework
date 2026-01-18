@@ -54,6 +54,7 @@ namespace VRG.ChapterFramework
             }
         }
 
+
         #region Public Methods
         public virtual void Begin()
         {
@@ -73,6 +74,14 @@ namespace VRG.ChapterFramework
         public virtual void ForceCompletion()
         {
 
+        }
+
+        public void RegisterComponent(Component component)
+        {
+            if(!_components.Contains(component))
+            {
+                _components.Add(component);
+            }
         }
 
         #endregion

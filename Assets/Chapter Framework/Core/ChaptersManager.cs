@@ -13,7 +13,7 @@ namespace VRG.ChapterFramework
         [SerializeField] private List<Chapter> chapters = new List<Chapter>();
 
         public static Action<int> OnChapterBegun;
-        public void AddChapter(Chapter chapter)
+        public void RegisterChapter(Chapter chapter)
         {
             if (!chapters.Contains(chapter))
             {
