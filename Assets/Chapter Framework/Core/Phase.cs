@@ -73,7 +73,7 @@ namespace VRG.ChapterFramework
 
         public virtual void ForceCompletion()
         {
-
+            _components[0].SetupForChapter(_chapterIndex);
         }
 
         public void RegisterComponent(Component component)
@@ -83,6 +83,7 @@ namespace VRG.ChapterFramework
                 _components.Add(component);
             }
         }
+
 
         #endregion
     }

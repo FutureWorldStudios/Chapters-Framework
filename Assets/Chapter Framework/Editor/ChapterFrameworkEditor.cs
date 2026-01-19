@@ -1,56 +1,88 @@
-﻿using Sirenix.OdinInspector;
+﻿using Codice.CM.Client.Differences.Graphic;
+using FWS;
+using Sirenix.OdinInspector;
 using Sirenix.OdinInspector.Editor;
 using Sirenix.Utilities.Editor;
 using System;
 using System.Collections.Generic;  
+using System.ComponentModel;
 using System.IO;
-using System.Reflection;
 using System.Linq;
+using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Unity.VisualScripting;
 using UnityEditor;
 using UnityEditor.Callbacks;
+using UnityEditor.Experimental.GraphView;
 using UnityEngine;
-using Unity.VisualScripting;
+using UnityEngine.Rendering.Universal;
+using static Codice.CM.WorkspaceServer.WorkspaceTreeDataStore;
 
 namespace VRG.ChapterFramework.Editor
 {
     public class ChapterFrameworkEditor : OdinEditorWindow
     {
-        private const string _fileName = "ChapterConfiguration.json";
-        private string _directoryPath = Path.Combine(Application.dataPath, "Chapter Framework", "Engine");
-        private string _scriptsPath = Path.Combine(Application.dataPath, "Chapter Framework", "Scripts");
+        public enum ChapterWindowMenu
+        {
+            BaseSceneConfig,
+            Configuration
+        }
 
-        private const string _chapterTemplateName = "ChapterTemplate.cs.txt";
-        private const string _phaseTemplateName = "PhaseTemplate.cs.txt";
-        private const string _milestonePhaseTemplateName = "MilestonePhaseTemplate.cs.txt";
-        private const string _milestoneTemplateName = "MilestoneTemplate.cs.txt";
-        private const string _componentTemplateName = "ComponentTemplate.cs.txt";
-
-        private static bool _canAttachScripts;
-        private static GameObject _chapterManagerObject;
-
-        private static string AllowSetupKey = "AllowSetupKey";
-        private static string ChaptersJSONKey = "ChaptersJSONKey";
-        private static string AddComponentToMilestoneKey = "AddComponentToMilestoneKey";
-        private static string AddComponentToPhaseKey = "AddComponentToPhaseKey";
-        private static string ComponentTypeNameKey = "ComponentTypeNameKey";
-
+        #region Inspector Variables
         [BoxGroup("Control Panel"), HideLabel, EnumToggleButtons, OnValueChanged("LoadConfiguration")]
         public ChapterWindowMenu Menu;
 
         [ShowIf("Menu", ChapterWindowMenu.Configuration), BoxGroup("Control Panel")]
         public Chapters ChapterConfig;
 
+        [ShowIf("Menu", ChapterWindowMenu.BaseSceneConfig), BoxGroup("Base Scene Configuration")]
+        [SerializeField, BoxGroup("Base Scene Configuration")] public int ApplicationFrameRate = 60;
+        [SerializeField, BoxGroup("Base Scene Configuration")] public MsaaQuality MsaaQuality = MsaaQuality._2x;
+        [SerializeField, BoxGroup("Base Scene Configuration")] public bool _boothMode = false;
+
+        [ShowIf("_boothMode"), SerializeField, BoxGroup("Base Scene Configuration")] public double ResetTime = 60;
+        #endregion
+
+
+        #region Private Variables
+        private const string _fileName = "ChapterConfiguration.json";
+        private string _directoryPath = Path.Combine(Application.dataPath, "Chapter Framework", "Engine");
+        private string _scriptsPath = Path.Combine(Application.dataPath, "Chapter Framework", "Scripts");
+        private string _coreBasePath = Path.Combine(Application.dataPath, "Chapter Framework", "Core", "Bases");
+
+        private const string _chapterTemplateName = "ChapterTemplate.cs.txt";
+        private const string _phaseTemplateName = "PhaseTemplate.cs.txt";
+        private const string _milestonePhaseTemplateName = "MilestonePhaseTemplate.cs.txt";
+        private const string _milestoneTemplateName = "MilestoneTemplate.cs.txt";
+        private const string _componentTemplateName = "ComponentTemplate.cs.txt";
+        private const string _framerateManagerName = "FramerateManager.cs";
+
+        private static bool _canAttachScripts;
+        private static GameObject _chapterManagerObject;
+
+        private static string AllowSetupKey = "AllowSetupKey";
+        private static string ChaptersJSONKey = "ChaptersJSONKey";
+
+        private static string AddComponentToMilestoneKey = "AddComponentToMilestoneKey";
+        private static string AddComponentToPhaseKey = "AddComponentToPhaseKey";
+        private static string AddChaptersKey = "AddChaptersKey";
+        private static string AddPhasekey = "AddPhasekey";
+        private static string AddMilestonePhaseKey = "AddMilestonePhaseKey";
+        private static string AddMilestoneKey = "AddMilestoneKey";
+
+        private static string ComponentTypeNameKey = "ComponentTypeNameKey";
+        private static string ChapterNameKey = "ChapterNameKey";
+        private static string PhaseNameKey = "PhaseNameKey";
+        private static string MilestonePhaseNameKey = "MilestonePhaseNameKey";
+        private static string MilestoneNameKey = "MilestoneNameKey"; 
+        #endregion
+
         private static event Action<Chapters> OnGenerateHierarchy;
 
-        public enum ChapterWindowMenu
-        {
-            Edit,
-            Configuration
-        }
 
         #region Private Static Methods
-        [MenuItem("My Game/My Editor")]
+        [MenuItem("Chapter Framework/Getting Started")]
         private static void OpenWindow()
         {
             EditorWindow.GetWindow(typeof(ChapterFrameworkEditor));
@@ -90,113 +122,32 @@ namespace VRG.ChapterFramework.Editor
         [MenuItem("GameObject/Chapters Framework/Add New Component", false, 0)]
         private static void AddNewCustomComponent()
         {
-            ComponentEditor.OpenWindow();   
+            ModuleEditor.OpenWindow(Module.Component);   
         }
 
         [MenuItem("GameObject/Chapters Framework/Add New Chapter", false, 0)]
         private static void AddNewChapter()
         {
-            LogSelectedTransformName();
-            if (Selection.activeGameObject != null)
-            {
-                GameObject selectedObject = Selection.activeGameObject;
-                Chapter newChapter = selectedObject.AddComponent<Chapter>();
-                Debug.Log("Added Chapter component to: " + selectedObject.name);
-
-                ChaptersManager chaptersManager = GameObject.FindObjectOfType<ChaptersManager>();
-                if (chaptersManager != null)
-                {
-                    chaptersManager.RegisterChapter(newChapter);
-                    Debug.Log("Registered new Chapter with ChaptersManager.");
-                }
-                else
-                {
-                    Debug.LogWarning("No ChaptersManager found in the scene. Please add one to manage chapters.");
-                }
-            }
-            else
-            {
-                Debug.LogWarning("No GameObject selected. Please select a GameObject to add a Chapter component.");
-            }
+            ModuleEditor.OpenWindow(Module.Chapter);
         }
 
         [MenuItem("GameObject/Chapters Framework/Add New Phase", false, 0)]
         private static void AddNewPhase()
         {
-            LogSelectedTransformName();
-            if (Selection.activeGameObject != null)
-            {
-                GameObject selectedObject = Selection.activeGameObject;
-                Phase newPhase = selectedObject.AddComponent<Phase>();
-                Debug.Log("Added Phase component to: " + selectedObject.name);
-                Chapter parentChapter = selectedObject.GetComponent<Chapter>();
-                if (parentChapter != null)
-                {
-                    parentChapter.RegisterPhase(newPhase);
-                    Debug.Log("Registered new Phase with parent Chapter.");
-                }
-                else
-                {
-                    Debug.LogWarning("No parent Chapter found. Please ensure the Phase is added under a Chapter GameObject.");
-                }
-            }
-            else
-            {
-                Debug.LogWarning("No GameObject selected. Please select a GameObject to add a Phase component.");
-            }
+            ModuleEditor.OpenWindow(Module.Phase);
         }
 
         [MenuItem("GameObject/Chapters Framework/Add New Milestone Phase", false, 0)]
         private static void AddNewMilestonePhase()
         {
-            LogSelectedTransformName();
-            if (Selection.activeGameObject != null)
-            {
-                GameObject selectedObject = Selection.activeGameObject;
-                MilestonePhase newMilestonePhase = selectedObject.AddComponent<MilestonePhase>();
-                Debug.Log("Added MilestonePhase component to: " + selectedObject.name);
-                Chapter parentChapter = selectedObject.GetComponent<Chapter>();
-                if (parentChapter != null)
-                {
-                    parentChapter.RegisterPhase(newMilestonePhase);
-                    Debug.Log("Registered new MilestonePhase with parent Chapter.");
-                }
-                else
-                {
-                    Debug.LogWarning("No parent Chapter found. Please ensure the MilestonePhase is added under a Chapter GameObject.");
-                }
-            }
-            else
-            {
-                Debug.LogWarning("No GameObject selected. Please select a GameObject to add a MilestonePhase component.");
-            }
+            ModuleEditor.OpenWindow(Module.MilestonePhase);
         }
 
         [MenuItem("GameObject/Chapters Framework/Add New Milestone", false, 0)]
         private static void AddNewMilestone()
-        {
-            LogSelectedTransformName();
-            if (Selection.activeGameObject != null)
-            {
-                GameObject selectedObject = Selection.activeGameObject;
-                Milestone newMilestone = selectedObject.AddComponent<Milestone>();
-                Debug.Log("Added Milestone component to: " + selectedObject.name);
-                MilestonePhase parentMilestonePhase = selectedObject.GetComponent<MilestonePhase>();
-                if (parentMilestonePhase != null)
-                {
-                    parentMilestonePhase.RegisterMilestone(newMilestone);
-                    Debug.Log("Registered new Milestone with parent MilestonePhase.");
-                }
-                else
-                {
-                    Debug.LogWarning("No parent MilestonePhase found. Please ensure the Milestone is added under a MilestonePhase GameObject.");
-                }
-            }
-            else
-            {
-                Debug.LogWarning("No GameObject selected. Please select a GameObject to add a Milestone component.");
-            }
-        }   
+        {            
+            ModuleEditor.OpenWindow(Module.Milestone);
+        }
 
         static void LogSelectedTransformName()
         {
@@ -214,29 +165,145 @@ namespace VRG.ChapterFramework.Editor
 
             GUILayout.FlexibleSpace();
 
-            GUI.enabled = (Menu == ChapterWindowMenu.Configuration);
-            if (SirenixEditorGUI.ToolbarButton("Save"))
+            if (Menu == ChapterWindowMenu.Configuration)
             {
-                SaveConfiguration();
-            }
-            if (SirenixEditorGUI.ToolbarButton("Load"))
-            {
-                //LoadLocalConfiguration();
-                LoadConfiguration(); //Uses text file *VRG*
-            }
-            if (SirenixEditorGUI.ToolbarButton("Create Setup Now"))
-            {
-                Debug.Log("PRESSED");
-                GenerateScripts();
-            }
+                if (SirenixEditorGUI.ToolbarButton("Save"))
+                {
+                    SaveConfiguration();
+                }
 
-            GUI.enabled = true;
+                if (SirenixEditorGUI.ToolbarButton("Load"))
+                {
+                    LoadConfiguration();
+                }
 
+                if (SirenixEditorGUI.ToolbarButton("Create Setup Now"))
+                {
+                    Debug.Log("PRESSED");
+                    SaveConfiguration();
+                    GenerateScripts();
+                }
+            }
+            else if(Menu == ChapterWindowMenu.BaseSceneConfig)
+            {
+                if (SirenixEditorGUI.ToolbarButton("Setup Base Scene"))
+                {
+                    SetupBaseScene();
+                }
+            }
+            
             SirenixEditorGUI.EndHorizontalToolbar();
         }
         #endregion
 
         #region Private Methods
+
+        private async void SetupBaseScene()
+        {
+            if(!CheckIfBaseConfigExists())
+            {
+                GameObject appManager = new GameObject("App Manager");
+                appManager.AddComponent<AppManager>();
+
+                if (ApplicationFrameRate != 60 || MsaaQuality != MsaaQuality._2x)
+                {
+                    EditFramerateManager();
+                }
+
+                GameObject framerateManager = new GameObject("Framerate Manager");
+                framerateManager.AddComponent<FramerateManager>();
+
+                GameObject defaultCamera = GameObject.Find("Main Camera");
+
+                if (defaultCamera != null)
+                {
+                    DestroyImmediate(defaultCamera);
+                }
+
+                GameObject ovrCamera = GameObject.Find("OVRCameraRig");
+                if (ovrCamera == null)
+                {
+                    AddOVRCameraRigToScene();
+                }
+                
+                await Task.Delay(1000);
+
+                ovrCamera = GameObject.Find("OVRCameraRig");
+                GameObject centerEye = ovrCamera.transform.GetChild(0).GetChild(1).gameObject;
+
+                if (centerEye != null)
+                {
+                    DestroyImmediate(centerEye.GetComponent<OVRScreenFade>());
+                    centerEye.AddComponent<FWS_OVRScreenFade>();
+                }
+            }
+        }
+        [MenuItem("GameObject/Chapters Framework/VR/Add OVRCameraRig")]
+        public static void AddOVRCameraRigToScene()
+        {
+            // Find prefab by name
+            string[] guids = AssetDatabase.FindAssets("OVRCameraRig t:Prefab");
+
+            if (guids == null || guids.Length == 0)
+            {
+                Debug.LogError("OVRCameraRig prefab not found in project.");
+                return;
+            }
+
+            // Load the prefab
+            string prefabPath = AssetDatabase.GUIDToAssetPath(guids[0]);
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+
+            if (prefab == null)
+            {
+                Debug.LogError("Failed to load OVRCameraRig prefab.");
+                return;
+            }
+
+            // Instantiate into scene (keeps prefab connection)
+            GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+
+            instance.name = prefab.name;
+            Undo.RegisterCreatedObjectUndo(instance, "Add OVRCameraRig");
+
+            Selection.activeGameObject = instance;
+
+            Debug.Log($"OVRCameraRig added to scene from: {prefabPath}");
+        }
+
+        private bool CheckIfBaseConfigExists()
+        {
+            if (FindObjectOfType<AppManager>() != null && FindObjectOfType<FramerateManager>() != null)
+                return true;
+            else
+                return false;
+        }
+
+        private void EditFramerateManager()
+        {
+            string filePath = Path.Combine(_coreBasePath, _framerateManagerName);
+
+            string framerateManagerData = ReadFile(filePath);
+
+            framerateManagerData = Regex.Replace(
+         framerateManagerData,
+         @"(\[SerializeField\]\s*private\s+int\s+targetFramerate\s*=\s*)\d+(\s*;)",
+         m => $"{m.Groups[1].Value}{ApplicationFrameRate}{m.Groups[2].Value}"
+     );
+
+            // 2) MsaaQuality initializer
+            framerateManagerData = Regex.Replace(
+                framerateManagerData,
+                @"(\[SerializeField\]\s*private\s+MsaaQuality\s+quality\s*=\s*)MsaaQuality\.\w+(\s*;)",
+                m => $"{m.Groups[1].Value}MsaaQuality.{MsaaQuality}{m.Groups[2].Value}"
+            );
+
+            File.WriteAllText(filePath, framerateManagerData);
+
+#if UNITY_EDITOR
+            AssetDatabase.Refresh();
+#endif
+        }
 
         private void LoadLocalConfiguration()
         {
@@ -549,6 +616,52 @@ namespace VRG.ChapterFramework.Editor
                     }
                 }
             }
+            else if (SessionState.GetInt(AddChaptersKey, 0) == 1)
+            {
+                SessionState.SetInt(AddChaptersKey, 0);
+                string chapterName = SessionState.GetString(ChapterNameKey, "");
+
+                SessionState.SetString(ChapterNameKey, "");
+
+                if (selectedObject != null)
+                {
+                    ChaptersManager chManager = selectedObject.GetComponent<ChaptersManager>();
+
+                    if (chManager != null && chapterName != "")
+                    {
+                        GameObject chapterObject = GenerateAndAddComponent(chapterName, chapterName, chManager.transform);
+                        Chapter chapter = chapterObject.GetComponent<Chapter>();
+
+                        if (chapter != null)
+                        {
+                            chManager.RegisterChapter(chapter); 
+                        }
+                    }
+                }
+            }
+            else if (SessionState.GetInt(AddMilestoneKey, 0) == 1)
+            {
+                SessionState.SetInt(AddMilestoneKey, 0);
+                string milestoneName = SessionState.GetString(MilestoneNameKey, "");
+
+                SessionState.SetString(MilestoneNameKey, "");
+
+                if (selectedObject != null)
+                {
+                    Phase phase = selectedObject.GetComponent<Phase>();
+
+                    if (phase != null && milestoneName != "" && phase is MilestonePhase)
+                    {
+                        GameObject chapterObject = GenerateAndAddComponent(milestoneName, milestoneName, phase.transform);
+                        Milestone milestone = chapterObject.GetComponent<Milestone>();
+
+                        if (milestone != null)
+                        {
+                            (phase as MilestonePhase).RegisterMilestone(milestone);
+                        }
+                    }
+                }
+            }
         }
             
         private string ReplaceClassName(string template, string className)
@@ -695,6 +808,19 @@ namespace VRG.ChapterFramework.Editor
                 Debug.LogWarning("Milestone or Component is null. Cannot add component to milestone.");
             }
         }
+
+        public void AddChapter(string chapterName)
+        {
+            if (chapterName != null)
+            {
+                SessionState.SetInt(AddChaptersKey, 1);
+                SessionState.SetString(ChapterNameKey, chapterName);
+
+                GenerateComponentScript(chapterName);
+            }
+        }
+
+
 
         private void GenerateComponentScript(string componentName)
         {
