@@ -17,6 +17,7 @@ namespace FWS
     public class AppManager : MonoBehaviour
     {
         [SerializeField] private double _resetTime = 10;
+        
 
         private string _currentActiveScene;
 
@@ -31,6 +32,8 @@ namespace FWS
         public static Action OnSceneLoadBegun;
 
         public static AppManager Instance;
+
+        [SerializeField] private bool _boothMode = false;
 
 
         #region Unity Methods

@@ -93,7 +93,7 @@ namespace VRG.ChapterFramework.Editor
             window.Show();
         }
 
-        [MenuItem("GameObject/Chapters Framework/Add New Default Component", false, 0)]
+        [MenuItem("GameObject/Chapters Framework/Add New/Default Component", false, 0)]
         private static void AddNewComponent()
         {
             LogSelectedTransformName();
@@ -120,31 +120,31 @@ namespace VRG.ChapterFramework.Editor
             }
         }
 
-        [MenuItem("GameObject/Chapters Framework/Add New Component", false, 0)]
+        [MenuItem("GameObject/Chapters Framework/Add New/Component", false, 0)]
         private static void AddNewCustomComponent()
         {
             ModuleEditor.OpenWindow(Module.Component);   
         }
 
-        [MenuItem("GameObject/Chapters Framework/Add New Chapter", false, 0)]
+        [MenuItem("GameObject/Chapters Framework/Add New/Chapter", false, 0)]
         private static void AddNewChapter()
         {
             ModuleEditor.OpenWindow(Module.Chapter);
         }
 
-        [MenuItem("GameObject/Chapters Framework/Add New Phase", false, 0)]
+        [MenuItem("GameObject/Chapters Framework/Add New/Phase", false, 0)]
         private static void AddNewPhase()
         {
             ModuleEditor.OpenWindow(Module.Phase);
         }
 
-        [MenuItem("GameObject/Chapters Framework/Add New Milestone Phase", false, 0)]
+        [MenuItem("GameObject/Chapters Framework/Add New/Milestone Phase", false, 0)]
         private static void AddNewMilestonePhase()
         {
             ModuleEditor.OpenWindow(Module.MilestonePhase);
         }
 
-        [MenuItem("GameObject/Chapters Framework/Add New Milestone", false, 0)]
+        [MenuItem("GameObject/Chapters Framework/Add New/Milestone", false, 0)]
         private static void AddNewMilestone()
         {            
             ModuleEditor.OpenWindow(Module.Milestone);
@@ -254,11 +254,14 @@ namespace VRG.ChapterFramework.Editor
             appManagerData = Regex.Replace(appManagerData, @"(\[SerializeField\]\s*private\s+double\s+_resetTime\s*=\s*)\d+(\s*;)", 
                                             m => $"{m.Groups[1].Value}{ResetTime}{m.Groups[2].Value}");
 
+            appManagerData = Regex.Replace(appManagerData, @"(\[SerializeField\]\s*private\s+bool\s+_boothMode\s*=\s*)\d+(\s*;)",
+                                            m => $"{m.Groups[1].Value}{_boothMode}{m.Groups[2].Value}");
+
             File.WriteAllText(filePath, appManagerData);
 
             #if UNITY_EDITOR
                 AssetDatabase.Refresh();
-#endif
+            #endif
 
         }
 
