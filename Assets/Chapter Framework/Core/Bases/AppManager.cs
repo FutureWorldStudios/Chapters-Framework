@@ -10,8 +10,9 @@ namespace FWS
 
     public enum SceneId
     {
-      
+
     }
+
 
     public class AppManager : MonoBehaviour
     {

@@ -1,11 +1,8 @@
-﻿using Codice.CM.Client.Differences.Graphic;
-using FWS;
-using Sirenix.OdinInspector;
+﻿using Sirenix.OdinInspector;
 using Sirenix.OdinInspector.Editor;
 using Sirenix.Utilities.Editor;
 using System;
 using System.Collections.Generic;  
-using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -13,11 +10,9 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Unity.VisualScripting;
 using UnityEditor;
-using UnityEditor.Callbacks;
-using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
-using static Codice.CM.WorkspaceServer.WorkspaceTreeDataStore;
+using FWS;
 
 namespace VRG.ChapterFramework.Editor
 {
@@ -37,9 +32,12 @@ namespace VRG.ChapterFramework.Editor
         public Chapters ChapterConfig;
 
         [ShowIf("Menu", ChapterWindowMenu.BaseSceneConfig), BoxGroup("Base Scene Configuration")]
-        [SerializeField, BoxGroup("Base Scene Configuration")] public int ApplicationFrameRate = 60;
-        [SerializeField, BoxGroup("Base Scene Configuration")] public MsaaQuality MsaaQuality = MsaaQuality._2x;
-        [SerializeField, BoxGroup("Base Scene Configuration")] public bool _boothMode = false;
+        [ShowIf("Menu", ChapterWindowMenu.BaseSceneConfig),
+         SerializeField, BoxGroup("Base Scene Configuration")] public int ApplicationFrameRate = 60;
+        [ShowIf("Menu", ChapterWindowMenu.BaseSceneConfig), 
+         SerializeField, BoxGroup("Base Scene Configuration")] public MsaaQuality MsaaQuality = MsaaQuality._2x;
+        [ShowIf("Menu", ChapterWindowMenu.BaseSceneConfig), 
+         SerializeField, BoxGroup("Base Scene Configuration")] public bool _boothMode = false;
 
         [ShowIf("_boothMode"), SerializeField, BoxGroup("Base Scene Configuration")] public double ResetTime = 60;
         #endregion
@@ -56,7 +54,10 @@ namespace VRG.ChapterFramework.Editor
         private const string _milestonePhaseTemplateName = "MilestonePhaseTemplate.cs.txt";
         private const string _milestoneTemplateName = "MilestoneTemplate.cs.txt";
         private const string _componentTemplateName = "ComponentTemplate.cs.txt";
+
         private const string _framerateManagerName = "FramerateManager.cs";
+        private const string _appManagerName = "AppManager.cs";
+
 
         private static bool _canAttachScripts;
         private static GameObject _chapterManagerObject;
@@ -205,13 +206,18 @@ namespace VRG.ChapterFramework.Editor
                 GameObject appManager = new GameObject("App Manager");
                 appManager.AddComponent<AppManager>();
 
+                if (ResetTime != 60)
+                {
+                    EditAppManager();
+                }
+
                 if (ApplicationFrameRate != 60 || MsaaQuality != MsaaQuality._2x)
                 {
                     EditFramerateManager();
                 }
 
                 GameObject framerateManager = new GameObject("Framerate Manager");
-                framerateManager.AddComponent<FramerateManager>();
+                FramerateManager frManager = framerateManager.AddComponent<FramerateManager>();
 
                 GameObject defaultCamera = GameObject.Find("Main Camera");
 
@@ -238,6 +244,24 @@ namespace VRG.ChapterFramework.Editor
                 }
             }
         }
+
+        private void EditAppManager()
+        {
+            string filePath = Path.Combine(_coreBasePath, _appManagerName);
+
+            string appManagerData = ReadFile(filePath);
+
+            appManagerData = Regex.Replace(appManagerData, @"(\[SerializeField\]\s*private\s+double\s+_resetTime\s*=\s*)\d+(\s*;)", 
+                                            m => $"{m.Groups[1].Value}{ResetTime}{m.Groups[2].Value}");
+
+            File.WriteAllText(filePath, appManagerData);
+
+            #if UNITY_EDITOR
+                AssetDatabase.Refresh();
+#endif
+
+        }
+
         [MenuItem("GameObject/Chapters Framework/VR/Add OVRCameraRig")]
         public static void AddOVRCameraRigToScene()
         {
