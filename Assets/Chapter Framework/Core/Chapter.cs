@@ -1,18 +1,31 @@
 using UnityEngine;
 using System;
 using System.Collections.Generic;
+using Sirenix.OdinInspector;
 
-namespace VRG.ChapterFramework
+namespace VRG.ChapterFramework.Core
 {
-    public class Chapter : MonoBehaviour
+    public class Chapter : ChapterBase
+
     {
         #region Protected Properties
-        [SerializeField] protected List<Phase> _phases = new List<Phase>(); 
+        [BoxGroup("Chapters Setup"), SerializeField] protected List<Phase> _phases = new List<Phase>();
+        [BoxGroup("Chapters Setup"), SerializeField] private POV _userPOV;
         #endregion
 
         #region Private Properties
-        private Phase _currentPhase; 
+
+        [SerializeField] private bool _debug;
+        [ShowIf("_debug"), SerializeField] private Phase _currentPhase;
+        [ShowIf("_debug"), SerializeField] private int _currentPhaseIndex;
+        [ShowIf("_debug"), SerializeField] private bool _alreadyRegisteredPhaseEvents = false;
+        [ShowIf("_debug"), SerializeField] private int _index;
+
         #endregion
+
+        public Phase CurrentPhase => _currentPhase;
+
+        public string ChapterName;
 
         #region Events
         //Begin
@@ -21,42 +34,113 @@ namespace VRG.ChapterFramework
 
         public Action OnComplete;
         public Action OnForceReset;
-        public Action OnBegun; 
+        public Action OnBegun;
         #endregion
 
         #region Unity Methods
-        private void Start()
+        protected virtual void Start()
         {
-           
+            _index = transform.GetSiblingIndex();
         }
 
-        private void OnDestroy()
+        protected void OnDestroy()
         {
             UnRegisterPhaseEvents();
-        } 
+        }
         #endregion
 
         #region Public Methods
-        public virtual void Begin()
+
+        #region Core Methods
+
+        #region deprecated
+        //public void Begin()
+        //{
+        //    BeginFirstPhase();
+        //    RegisterPhaseEvents();
+
+        //    if(_userPOV != POV.None)
+        //        FWSPlayerController.Instance.SetPOV(_userPOV);
+
+        //    OnBegun?.Invoke();
+        //}
+
+        //public  void Complete()
+        //{
+        //    OnComplete?.Invoke();
+        //    UnRegisterPhaseEvents();
+        //}
+
+        //public  void ForceReset()
+        //{
+        //    OnForceReset?.Invoke();
+
+        //    //Reset all phases
+        //}  
+        #endregion
+
+        public override void Begin(ChapterData chapterData)
         {
+            ResetAllPhases();
+            BeginPhase(chapterData.PhaseIndex, chapterData.MilestoneIndex);
+            RegisterPhaseEvents();
+
+            FWSPlayerController.Instance.SetPOV(_userPOV);
+
             OnBegun?.Invoke();
-
-            //Start the first phase
         }
 
-        public virtual void Complete()
+        public override void Complete()
         {
+            UnRegisterPhaseEvents();
+            Debug.Log("[ch tracker] Chapter Complete " + ChapterName);
             OnComplete?.Invoke();
-
-            //Report to some Chapter Manager that this chapter is complete
         }
 
-        public virtual void ForceReset()
+        public override void ForceReset()
         {
-            OnForceReset?.Invoke();
+            UnRegisterPhaseEvents();
 
-            //Reset all phases
+            OnForceReset?.Invoke();
         }
+
+        public override void ForceComplete()
+        {
+            UnRegisterPhaseEvents();
+        }
+
+        public override void BeginNextPhase()
+        {
+            if (_phases.Count == 0)
+                return;
+
+            _currentPhaseIndex++;
+            _currentPhase = _phases[_currentPhaseIndex];
+
+            Debug.Log("[vcr] next phase starting " + _currentPhase);
+
+            if (_currentPhase is MilestonePhase)
+                _currentPhase.Begin(0);
+            else
+                _currentPhase.Begin();
+
+            BroadcastPhaseChange();
+        }
+
+        public override void BeginPhase(int phaseIndex = 0, int milestoneIndex = 0)
+        {
+            if (_phases.Count == 0)
+                return;
+
+            _currentPhaseIndex = phaseIndex;
+            _currentPhase = _phases[phaseIndex];
+
+            if (_currentPhase is MilestonePhase)
+                _currentPhase.Begin(milestoneIndex);
+            else
+                _currentPhase.Begin();
+        }
+        #endregion
 
         public void RegisterPhase(Phase phase)
         {
@@ -65,29 +149,73 @@ namespace VRG.ChapterFramework
                 _phases.Add(phase);
             }
         }
+
+        public int GetPhaseIndex(Phase phase)
+        {
+            for (int i = 0; i < _phases.Count; i++)
+            {
+                if (_phases[i] == phase)
+                    return i;
+            }
+            return -1;
+        }
         #endregion
 
         #region Private Methods
+
+        private void BroadcastPhaseChange()
+        {
+            ChapterData chapterData = Utils.GetChapterData(_index, _currentPhaseIndex, 0);
+
+            ChaptersManager.OnChapterBegun(chapterData);
+        }
+
         private void RegisterPhaseEvents()
         {
+            if (_alreadyRegisteredPhaseEvents)
+                return;
+
+            //Debug.Log($"mRegistering Phase Events for Chapter: {gameObject.name}");
             foreach (var phase in _phases)
             {
                 phase.OnComplete += HandlePhaseCompletion;
             }
+
+            _alreadyRegisteredPhaseEvents = true;
         }
 
         private void UnRegisterPhaseEvents()
         {
+            //Debug.Log($"[Chapter] Unregistering Phase Events for Chapter: {gameObject.name}");
             foreach (var phase in _phases)
             {
-                phase.OnComplete += HandlePhaseCompletion;
+                phase.OnComplete -= HandlePhaseCompletion;
+            }
+
+            _alreadyRegisteredPhaseEvents = false;
+        }
+
+        private void ResetAllPhases()
+        {
+            foreach (Phase phase in _phases)
+                phase.ForceReset();
+        }
+
+        private void HandlePhaseCompletion(int index)
+        {
+            if (index == _phases.Count - 1 && ChaptersManager.Instance.ActiveChapter == this)
+            {
+                Debug.Log("[MyChapter] Phases Completed. Chapter complete: " + _currentPhase.gameObject.name);
+                Complete();
+            }
+            else
+            {
+                BeginNextPhase();
             }
         }
 
-        private void HandlePhaseCompletion()
-        {
 
-        } 
+
         #endregion
     }
 }

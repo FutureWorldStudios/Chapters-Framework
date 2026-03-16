@@ -1,5 +1,6 @@
 using UnityEngine;
 using VRG.ChapterFramework;
+using VRG.ChapterFramework.Core;
 
 namespace VRG.ChapterFramework.Editor.Templates
 {

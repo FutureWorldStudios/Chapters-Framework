@@ -12,6 +12,7 @@ using Unity.VisualScripting;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
+using VRG.ChapterFramework.Core;
 
 namespace VRG.ChapterFramework.Editor
 {
@@ -72,12 +73,15 @@ namespace VRG.ChapterFramework.Editor
         private static string AddPhasekey = "AddPhasekey";
         private static string AddMilestonePhaseKey = "AddMilestonePhaseKey";
         private static string AddMilestoneKey = "AddMilestoneKey";
+        private static string MilestoneNamesJsonKey = "MilestoneNamesJsonKey";
 
         private static string ComponentTypeNameKey = "ComponentTypeNameKey";
         private static string ChapterNameKey = "ChapterNameKey";
         private static string PhaseNameKey = "PhaseNameKey";
         private static string MilestonePhaseNameKey = "MilestonePhaseNameKey";
-        private static string MilestoneNameKey = "MilestoneNameKey"; 
+        private static string MilestoneNameKey = "MilestoneNameKey";
+
+        private static string TargetObjectPathKey = "TargetObjectPathKey";
         #endregion
 
         private static event Action<Chapters> OnGenerateHierarchy;
@@ -94,37 +98,73 @@ namespace VRG.ChapterFramework.Editor
             window.Show();
         }
 
-        [MenuItem("GameObject/Chapters Framework/Add New/Default Component", false, 0)]
+        [MenuItem("GameObject/Chapters Framework/Add and Register/Component", false, 0)]
         private static void AddNewComponent()
         {
-            LogSelectedTransformName();
-            if (Selection.activeGameObject != null)
+            if (Selection.activeGameObject == null)
             {
-                GameObject selectedObject = Selection.activeGameObject;
+                Debug.LogWarning("No GameObject selected. Please select a GameObject.");
+                return;
+            }
 
-                if (selectedObject.GetComponent<Phase>() == null && 
-                    selectedObject.GetComponent<Milestone>() == null)
-                    return;
+            GameObject selectedObject = Selection.activeGameObject;
 
-                GameObject newComponent = new GameObject("New Component");
-                newComponent.transform.SetParent(selectedObject.transform);
+            Phase phase = selectedObject.GetComponent<Phase>();
+            Milestone milestone = selectedObject.GetComponent<Milestone>();
 
-                Debug.Log("Added new component GameObject under: " + selectedObject.name);
+            if (phase == null && milestone == null)
+            {
+                Debug.LogWarning("Selected object must have either a Phase or Milestone component.");
+                return;
+            }
 
-                Component component = newComponent.AddComponent<Component>();
+            GameObject newComponent = new GameObject("New Component");
+            Undo.RegisterCreatedObjectUndo(newComponent, "Create New Component");
 
-                selectedObject.GetComponent<Phase>().RegisterComponent(component);
+            newComponent.transform.SetParent(selectedObject.transform, false);
+
+            DefaultComponentEntity component = newComponent.AddComponent<DefaultComponentEntity>();
+
+            if (phase != null)
+            {
+                phase.RegisterComponent(component);
             }
             else
             {
-                Debug.LogWarning("No GameObject selected. Please select a GameObject to add components.");
+                Debug.LogWarning("Selected object has Milestone but no registration logic is implemented for it yet.");
+                // milestone.RegisterComponent(component); // use this if Milestone supports it
             }
+
+            Selection.activeGameObject = newComponent;
+
+            Debug.Log("Added new component under: " + selectedObject.name);
         }
 
-        [MenuItem("GameObject/Chapters Framework/Add New/Component", false, 0)]
+        [MenuItem("GameObject/Chapters Framework/Add New/Default Component", false, 0)]
+        private static void AddComponent()
+        {
+            GameObject selectedObject = Selection.activeGameObject;
+
+            if (selectedObject == null)
+            {
+                Debug.LogWarning("No GameObject selected. Please select a GameObject.");
+                return;
+            }
+
+            GameObject newComponent = new GameObject("New Component");
+            Undo.RegisterCreatedObjectUndo(newComponent, "Create New Component");
+            newComponent.transform.SetParent(selectedObject.transform, false);
+            newComponent.AddComponent<DefaultComponentEntity>();
+
+            Selection.activeGameObject = newComponent;
+
+            Debug.Log("Added new component under: " + selectedObject.name);
+        }
+
+        [MenuItem("GameObject/Chapters Framework/Add New/Custom Component", false, 0)]
         private static void AddNewCustomComponent()
         {
-            ModuleEditor.OpenWindow(Module.Component);   
+            ModuleEditor.OpenWindow(Module.Component);
         }
 
         [MenuItem("GameObject/Chapters Framework/Add New/Chapter", false, 0)]
@@ -603,7 +643,11 @@ namespace VRG.ChapterFramework.Editor
         {
             await Task.Delay(4000);
 
-            GameObject selectedObject = UnityEditor.Selection.activeGameObject;
+            string targetPath = SessionState.GetString(TargetObjectPathKey, "");
+            GameObject selectedObject = FindGameObjectByPath(targetPath);
+
+            if (selectedObject == null)
+                selectedObject = UnityEditor.Selection.activeGameObject;
 
             if (SessionState.GetInt(AddComponentToPhaseKey, 0) == 1)
             {
@@ -615,17 +659,20 @@ namespace VRG.ChapterFramework.Editor
                 {
                     Phase phase = selectedObject.GetComponent<Phase>();
 
-                    if(phase != null && phase is not MilestonePhase && componentName != "")
+                    if (phase != null && phase is not MilestonePhase && componentName != "")
                     {
                         GameObject componentObject = GenerateAndAddComponent(componentName, componentName, phase.transform);
 
-                        Component component = componentObject.GetComponent<Component>();    
+                        ComponentEntity component = componentObject.GetComponent<ComponentEntity>();
                         if (component != null)
                         {
                             phase.RegisterComponent(component);
+                            Debug.Log($"Registered component '{component.name}' to '{phase.name}'.");
                         }
                     }
                 }
+
+                SessionState.SetString(TargetObjectPathKey, "");
             }
             else if(SessionState.GetInt(AddComponentToMilestoneKey, 0) == 1)
             {
@@ -641,7 +688,7 @@ namespace VRG.ChapterFramework.Editor
                     if(milestone != null && componentName != "")
                     {
                         GameObject componentObject = GenerateAndAddComponent(componentName, componentName, milestone.transform);
-                        Component component = componentObject.GetComponent<Component>();
+                        ComponentEntity component = componentObject.GetComponent<ComponentEntity>();
 
                         if (component != null)
                         {
@@ -695,6 +742,111 @@ namespace VRG.ChapterFramework.Editor
                         }
                     }
                 }
+            }
+            else if (SessionState.GetInt(AddPhasekey, 0) == 1)
+            {
+                SessionState.SetInt(AddPhasekey, 0);
+                string phaseName = SessionState.GetString(PhaseNameKey, "");
+                SessionState.SetString(PhaseNameKey, "");
+
+                if (selectedObject != null)
+                {
+                    Chapter chapter = selectedObject.GetComponent<Chapter>();
+
+                    if (chapter != null && phaseName != "")
+                    {
+                        GameObject phaseObject = GenerateAndAddComponent(phaseName, phaseName, chapter.transform);
+                        Phase phase = phaseObject.GetComponent<Phase>();
+
+                        if (phase != null)
+                        {
+                            chapter.RegisterPhase(phase);
+                        }
+                    }
+                }
+            }
+            else if (SessionState.GetInt(AddMilestonePhaseKey, 0) == 1)
+            {
+                SessionState.SetInt(AddMilestonePhaseKey, 0);
+
+                string milestonePhaseName = SessionState.GetString(MilestonePhaseNameKey, "");
+                SessionState.SetString(MilestonePhaseNameKey, "");
+
+                string milestonesJson = SessionState.GetString(MilestoneNamesJsonKey, "");
+                SessionState.SetString(MilestoneNamesJsonKey, "");
+
+                List<string> milestoneNames = new List<string>();
+                if (!string.IsNullOrEmpty(milestonesJson))
+                {
+                    StringListWrapper wrapper = JsonUtility.FromJson<StringListWrapper>(milestonesJson);
+                    if (wrapper != null && wrapper.Data != null)
+                        milestoneNames = wrapper.Data;
+                }
+
+                if (selectedObject != null)
+                {
+                    Chapter chapter = selectedObject.GetComponent<Chapter>();
+
+                    if (chapter != null && milestonePhaseName != "")
+                    {
+                        GameObject phaseObject = GenerateAndAddComponent(milestonePhaseName, milestonePhaseName, chapter.transform);
+                        MilestonePhase phase = phaseObject.GetComponent<MilestonePhase>();
+
+                        if (phase != null)
+                        {
+                            chapter.RegisterPhase(phase);
+
+                            foreach (string milestoneName in milestoneNames)
+                            {
+                                if (string.IsNullOrWhiteSpace(milestoneName))
+                                    continue;
+
+                                GameObject milestoneObject = GenerateAndAddComponent(milestoneName, milestoneName, phase.transform);
+                                Milestone milestone = milestoneObject.GetComponent<Milestone>();
+
+                                if (milestone != null)
+                                {
+                                    phase.RegisterMilestone(milestone);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            else if (SessionState.GetInt(AddComponentToMilestoneKey, 0) == 1)
+            {
+                SessionState.SetInt(AddComponentToMilestoneKey, 0);
+
+                string componentName = SessionState.GetString(ComponentTypeNameKey, "");
+                SessionState.SetString(ComponentTypeNameKey, "");
+
+                if (selectedObject != null)
+                {
+                    Milestone milestone = selectedObject.GetComponent<Milestone>();
+
+                    if (milestone != null && componentName != "")
+                    {
+                        GameObject componentObject = GenerateAndAddComponent(componentName, componentName, milestone.transform);
+                        ComponentEntity component = componentObject.GetComponent<ComponentEntity>();
+
+                        if (component != null)
+                        {
+                            MilestonePhase parentPhase = milestone.GetComponentInParent<MilestonePhase>();
+
+                            if (parentPhase != null)
+                            {
+                                parentPhase.RegisterComponent(component);
+                                Debug.Log($"Registered component '{component.name}' to '{parentPhase.name}'.");
+                            }
+                            else
+                            {
+                                Debug.LogWarning("No parent MilestonePhase found.");
+                            }
+                        }
+                    }
+                }
+
+                SessionState.SetString(TargetObjectPathKey, "");
             }
         }
             
@@ -818,10 +970,11 @@ namespace VRG.ChapterFramework.Editor
 
         public void AddComponentToPhase(string component)
         {
-            if (component != null)
+            if (!string.IsNullOrWhiteSpace(component) && Selection.activeGameObject != null)
             {
                 SessionState.SetInt(AddComponentToPhaseKey, 1);
                 SessionState.SetString(ComponentTypeNameKey, component);
+                SessionState.SetString(TargetObjectPathKey, GetTransformPath(Selection.activeGameObject.transform));
 
                 GenerateComponentScript(component);
             }
@@ -833,10 +986,11 @@ namespace VRG.ChapterFramework.Editor
 
         public void AddComponentToMilestone(string component)
         {
-            if (component != null)
+            if (!string.IsNullOrWhiteSpace(component) && Selection.activeGameObject != null)
             {
                 SessionState.SetInt(AddComponentToMilestoneKey, 1);
                 SessionState.SetString(ComponentTypeNameKey, component);
+                SessionState.SetString(TargetObjectPathKey, GetTransformPath(Selection.activeGameObject.transform));
 
                 GenerateComponentScript(component);
             }
@@ -873,6 +1027,124 @@ namespace VRG.ChapterFramework.Editor
         }
 
         #endregion
+
+        public void AddPhase(string phaseName)
+        {
+            if (!string.IsNullOrWhiteSpace(phaseName))
+            {
+                SessionState.SetInt(AddPhasekey, 1);
+                SessionState.SetString(PhaseNameKey, phaseName);
+
+                GeneratePhaseScript(phaseName);
+            }
+            else
+            {
+                Debug.LogWarning("Phase name is null or empty.");
+            }
+        }
+
+        public void AddMilestonePhase(string milestonePhaseName, List<string> milestoneNames)
+        {
+            if (!string.IsNullOrWhiteSpace(milestonePhaseName))
+            {
+                SessionState.SetInt(AddMilestonePhaseKey, 1);
+                SessionState.SetString(MilestonePhaseNameKey, milestonePhaseName);
+
+                string milestonesJson = JsonUtility.ToJson(new StringListWrapper { Data = milestoneNames ?? new List<string>() });
+                SessionState.SetString(MilestoneNamesJsonKey, milestonesJson);
+
+                GenerateMilestonePhaseScript(milestonePhaseName);
+
+                if (milestoneNames != null)
+                {
+                    foreach (string milestoneName in milestoneNames)
+                    {
+                        if (!string.IsNullOrWhiteSpace(milestoneName))
+                            GenerateMilestoneScript(milestoneName);
+                    }
+                }
+            }
+            else
+            {
+                Debug.LogWarning("Milestone Phase name is null or empty.");
+            }
+        }
+
+        public void AddMilestone(string milestoneName)
+        {
+            if (!string.IsNullOrWhiteSpace(milestoneName))
+            {
+                SessionState.SetInt(AddMilestoneKey, 1);
+                SessionState.SetString(MilestoneNameKey, milestoneName);
+
+                GenerateMilestoneScript(milestoneName);
+            }
+            else
+            {
+                Debug.LogWarning("Milestone name is null or empty.");
+            }
+        }
+        private void GeneratePhaseScript(string phaseName)
+        {
+            string templatesPath = Path.Combine(Application.dataPath, "Chapter Framework", "Editor", "Templates");
+            string scriptsPath = Path.Combine(Application.dataPath, "Chapter Framework", "Scripts");
+            string phaseTemplate = ReadFile(Path.Combine(templatesPath, _phaseTemplateName));
+
+            if (!string.IsNullOrEmpty(phaseTemplate))
+            {
+                string phaseContent = ReplacePhaseName(phaseTemplate, phaseName);
+                CreateClassFile(scriptsPath, phaseName, phaseContent);
+            }
+        }
+
+        private void GenerateMilestonePhaseScript(string milestonePhaseName)
+        {
+            string templatesPath = Path.Combine(Application.dataPath, "Chapter Framework", "Editor", "Templates");
+            string scriptsPath = Path.Combine(Application.dataPath, "Chapter Framework", "Scripts");
+            string milestonePhaseTemplate = ReadFile(Path.Combine(templatesPath, _milestonePhaseTemplateName));
+
+            if (!string.IsNullOrEmpty(milestonePhaseTemplate))
+            {
+                string content = ReplaceMilestonePhaseName(milestonePhaseTemplate, milestonePhaseName);
+                CreateClassFile(scriptsPath, milestonePhaseName, content);
+            }
+        }
+
+        private void GenerateMilestoneScript(string milestoneName)
+        {
+            string templatesPath = Path.Combine(Application.dataPath, "Chapter Framework", "Editor", "Templates");
+            string scriptsPath = Path.Combine(Application.dataPath, "Chapter Framework", "Scripts");
+            string milestoneTemplate = ReadFile(Path.Combine(templatesPath, _milestoneTemplateName));
+
+            if (!string.IsNullOrEmpty(milestoneTemplate))
+            {
+                string content = ReplaceMilestoneName(milestoneTemplate, milestoneName);
+                CreateClassFile(scriptsPath, milestoneName, content);
+            }
+        }
+
+        private static string GetTransformPath(Transform target)
+        {
+            if (target == null) return string.Empty;
+
+            string path = target.name;
+            while (target.parent != null)
+            {
+                target = target.parent;
+                path = target.name + "/" + path;
+            }
+            return path;
+        }
+
+        private static GameObject FindGameObjectByPath(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+                return null;
+
+            Transform found = GameObject.Find(path)?.transform;
+            return found != null ? found.gameObject : null;
+        }
+
 
     }
 
@@ -957,9 +1229,14 @@ namespace VRG.ChapterFramework.Editor
         private void RefreshMilestoneCount()
         {
             MilestoneCount = 0;
-            Milestones.Clear();
             Milestones = new List<string>();
         }
 
     }
+}
+
+[Serializable]
+public class StringListWrapper
+{
+    public List<string> Data = new();
 }

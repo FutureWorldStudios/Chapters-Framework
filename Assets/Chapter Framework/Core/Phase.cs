@@ -1,61 +1,106 @@
+using Sirenix.OdinInspector;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
-namespace VRG.ChapterFramework
+namespace VRG.ChapterFramework.Core
 {
     public class Phase : MonoBehaviour
     {
         #region Events
-        public Action OnComplete;
+        public Action<int> OnComplete;
         #endregion
 
-        [SerializeField] private int _chapterIndex;
+        [BoxGroup("IDs"), SerializeField] private int _currentChapterIndex;
+        [BoxGroup("IDs"), SerializeField] private int _chapterIndex;
+        [BoxGroup("IDs"), SerializeField] private int _index;
 
+        [SerializeField] private List<ComponentEntity> _components = new List<ComponentEntity>();
 
-        [SerializeField] private List<Component> _components = new List<Component>();   
+        public int ChapterIndex => _chapterIndex;
+        public int Index => _index;
+
+        private ChapterData _currentChapterData;
+        private Chapter _chapter;
 
         #region Unity Methods
-        private void Start()
+        protected virtual void Start()
         {
-            _components = transform.GetComponentsInChildren<Component>(true).ToList();
+            //Debug.Log("[exec order phase] Start");
+
+            _components = transform.GetComponentsInChildren<ComponentEntity>(true).ToList();
 
             ChaptersManager.OnChapterBegun += HandleChapterBegun;
 
-            _chapterIndex = transform.GetComponentInParent<Chapter>() != null 
-                ? transform.GetComponentInParent<Chapter>().transform.GetSiblingIndex() : -1;
+            _chapter = transform.GetComponentInParent<Chapter>() != null ? transform.GetComponentInParent<Chapter>() : null;
+
+            _chapterIndex = _chapter != null ? _chapter.transform.GetSiblingIndex() : -1;
+
+            _index = _chapter != null ? _chapter.GetPhaseIndex(this) : -1;
         }
 
-        private void OnDestroy()
+        protected virtual void OnDestroy()
         {
+            //Debug.Log("[exec order phase] OnDestroy");
+
             ChaptersManager.OnChapterBegun -= HandleChapterBegun;
         }
         #endregion
 
-        private void HandleChapterBegun(int chapterIndex)
+        protected virtual void HandleChapterBegun(ChapterData chapter)
         {
-            if (_chapterIndex == -1)
+            //Debug.Log($"[testlog] Chapter Index: {chapter.Index}. CurrentChapter Index: {_currentChapterIndex}");
+
+            if (_currentChapterIndex == -1)
                 return;
 
-            SetupComponents();
-
-            if (chapterIndex < _chapterIndex)
-                ForceReset();
-            else
+            if (chapter.Index < _currentChapterIndex || (chapter.Index == 0 && _currentChapterIndex == 0))
+            {
+                if (chapter.PhaseIndex != _index || chapter.Index != _currentChapterIndex)
+                {
+                    ForceReset();
+                }
+            }
+            else if (chapter.Index > _currentChapterIndex ||
+                (chapter.Index == _currentChapterIndex && chapter.PhaseIndex > _index))
+            {
                 ForceCompletion();
+            }
+            //else if(chapter.Index == _currentChapterIndex)
+            //{
+            //    ForceReset();
+            //}
+
+            _currentChapterIndex = chapter.Index;
+
+            _currentChapterData = chapter;
+
+            SetupComponents();
         }
 
-        private void SetupComponents()
+        public void SetupComponents()
         {
+            if (_components == null)
+                return;
+
             foreach (var component in _components)
             {
-                component.SetupForChapter(_chapterIndex);
+                if (component != null)
+                    component.SetupForChapter(_currentChapterData);
             }
         }
 
-
         #region Public Methods
+
+        #region Core Methods
+
+        //Recommended to be overridden in MilestonePhase class only.
+        public virtual void Begin(int milestoneIndex = 0)
+        {
+
+        }
+
         public virtual void Begin()
         {
 
@@ -63,27 +108,31 @@ namespace VRG.ChapterFramework
 
         public virtual void Complete()
         {
-            OnComplete?.Invoke();
+
+            OnComplete?.Invoke(_index);
         }
 
         public virtual void ForceReset()
         {
 
-        } 
+        }
 
         public virtual void ForceCompletion()
         {
-            _components[0].SetupForChapter(_chapterIndex);
+
         }
 
-        public void RegisterComponent(Component component)
+        #endregion
+
+        public void RegisterComponent(ComponentEntity component)
         {
-            if(!_components.Contains(component))
+            Debug.Log("[exec order phase] RegisterComponent");
+
+            if (!_components.Contains(component))
             {
                 _components.Add(component);
             }
         }
-
 
         #endregion
     }
