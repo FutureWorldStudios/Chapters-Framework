@@ -1,0 +1,10 @@
+using UnityEngine;
+using VRG.ChapterFramework;
+
+namespace VRG.ChapterFramework.Editor.Templates
+{
+    public class #UIPHASE_NAME# : UIPhase
+    {
+       
+    }
+}

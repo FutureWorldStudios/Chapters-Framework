@@ -5,7 +5,7 @@ using System.Transactions;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace FWS
+namespace VRG.ChapterFramework
 {
 
     public enum SceneId
@@ -16,7 +16,7 @@ namespace FWS
 
     public class AppManager : MonoBehaviour
     {
-        [SerializeField] private double _resetTime = 10;
+        [SerializeField] private double _resetTime = 13;
         
 
         private string _currentActiveScene;

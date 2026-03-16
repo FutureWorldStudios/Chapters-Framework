@@ -2,33 +2,36 @@ using UnityEngine;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.XR;
 
-public class FramerateManager : MonoBehaviour
+namespace VRG.ChapterFramework
 {
-    [SerializeField] private int targetFramerate = 90;
-    [SerializeField] private MsaaQuality quality = MsaaQuality._4x;
-
-    public static FramerateManager Instance;
-
-    private void Awake()
+    public class FramerateManager : MonoBehaviour
     {
-        if(Instance == null)
-        {
-            Instance = this;
-        }
-        else
-        {
-            Destroy(this.gameObject);
-            return;
-        }
+        [SerializeField] private int targetFramerate = 90;
+        [SerializeField] private MsaaQuality quality = MsaaQuality._4x;
 
-        XRSettings.eyeTextureResolutionScale = 1.1f;
+        public static FramerateManager Instance;
 
-        Application.targetFrameRate = targetFramerate;
-        OVRPlugin.systemDisplayFrequency = targetFramerate;
-
-        if (OVRPlugin.GetSystemHeadsetType() == OVRPlugin.SystemHeadset.Meta_Quest_3S || OVRPlugin.GetSystemHeadsetType() == OVRPlugin.SystemHeadset.Meta_Quest_3)
+        private void Awake()
         {
-            OVRPlugin.suggestedCpuPerfLevel = OVRPlugin.ProcessorPerformanceLevel.SustainedHigh;
+            if (Instance == null)
+            {
+                Instance = this;
+            }
+            else
+            {
+                Destroy(this.gameObject);
+                return;
+            }
+
+            XRSettings.eyeTextureResolutionScale = 1.1f;
+
+            Application.targetFrameRate = targetFramerate;
+            OVRPlugin.systemDisplayFrequency = targetFramerate;
+
+            if (OVRPlugin.GetSystemHeadsetType() == OVRPlugin.SystemHeadset.Meta_Quest_3S || OVRPlugin.GetSystemHeadsetType() == OVRPlugin.SystemHeadset.Meta_Quest_3)
+            {
+                OVRPlugin.suggestedCpuPerfLevel = OVRPlugin.ProcessorPerformanceLevel.SustainedHigh;
+            }
         }
     }
 }

@@ -2,52 +2,55 @@ using UnityEngine;
 using System.Threading.Tasks;
 using System;
 
-public class FWS_OVRScreenFade : OVRScreenFade
+namespace VRG.ChapterFramework
 {
-    public static FWS_OVRScreenFade Instance;
-
-    private void Awake()
+    public class FWS_OVRScreenFade : OVRScreenFade
     {
-        if (Instance != null && Instance != this)
+        public static FWS_OVRScreenFade Instance;
+
+        private void Awake()
         {
-            Destroy(this.gameObject);
+            if (Instance != null && Instance != this)
+            {
+                Destroy(this.gameObject);
+            }
+            else
+            {
+                Instance = this;
+            }
         }
-        else
+
+        public void FadeOut(float duration)
         {
-            Instance = this;
+            fadeTime = duration;
+            FadeOut();
         }
-    }
 
-    public void FadeOut(float duration)
-    {
-        fadeTime = duration;
-        FadeOut();
-    }
+        public void FadeIn(float duration)
+        {
+            fadeTime = duration;
+            FadeIn();
+        }
 
-    public void FadeIn(float duration)
-    {
-        fadeTime = duration;
-        FadeIn();
-    }
+        public async Task Blink(int blinkDuration = 1)
+        {
+            float defaultFadeTime = fadeTime;
+            fadeTime = blinkDuration;
 
-    public async Task Blink(int blinkDuration = 1)
-    {
-        float defaultFadeTime = fadeTime;
-        fadeTime = blinkDuration;
+            FadeOut();
+            await Task.Delay(blinkDuration * 1000);
 
-        FadeOut();
-        await Task.Delay(blinkDuration * 1000);
+            FadeIn();
 
-        FadeIn();
+            fadeTime = defaultFadeTime;
+        }
 
-        fadeTime = defaultFadeTime;
-    }
-
-    public void BlackOut()
-    {
-        float defaultFadeTime = fadeTime;
-        fadeTime = 0;
-        FadeOut();
-        fadeTime = defaultFadeTime; 
+        public void BlackOut()
+        {
+            float defaultFadeTime = fadeTime;
+            fadeTime = 0;
+            FadeOut();
+            fadeTime = defaultFadeTime;
+        }
     }
 }

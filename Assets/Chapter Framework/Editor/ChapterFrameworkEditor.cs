@@ -12,7 +12,6 @@ using Unity.VisualScripting;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
-using FWS;
 
 namespace VRG.ChapterFramework.Editor
 {
@@ -39,6 +38,7 @@ namespace VRG.ChapterFramework.Editor
         [ShowIf("Menu", ChapterWindowMenu.BaseSceneConfig), 
          SerializeField, BoxGroup("Base Scene Configuration")] public bool _boothMode = false;
 
+
         [ShowIf("_boothMode"), SerializeField, BoxGroup("Base Scene Configuration")] public double ResetTime = 60;
         #endregion
 
@@ -52,6 +52,7 @@ namespace VRG.ChapterFramework.Editor
         private const string _chapterTemplateName = "ChapterTemplate.cs.txt";
         private const string _phaseTemplateName = "PhaseTemplate.cs.txt";
         private const string _milestonePhaseTemplateName = "MilestonePhaseTemplate.cs.txt";
+        private const string _uiPhaseTemplateName = "UIPhaseTemplate.cs.txt";
         private const string _milestoneTemplateName = "MilestoneTemplate.cs.txt";
         private const string _componentTemplateName = "ComponentTemplate.cs.txt";
 
@@ -352,6 +353,7 @@ namespace VRG.ChapterFramework.Editor
             string chapterTemplate = ReadFile(Path.Combine(templatesPath, _chapterTemplateName));
             string phaseTemplate = ReadFile(Path.Combine(templatesPath, _phaseTemplateName));
             string milestonePhaseTemplate = ReadFile(Path.Combine(templatesPath, _milestonePhaseTemplateName));
+            string uiPhaseTemplate = ReadFile(Path.Combine(templatesPath, _uiPhaseTemplateName));
             string milestoneTemplate = ReadFile(Path.Combine(templatesPath, _milestoneTemplateName));
 
             Chapters chapters = ChapterConfig;
@@ -378,7 +380,7 @@ namespace VRG.ChapterFramework.Editor
                         {
                             foreach (PhaseConfig phaseConfig in chapterConfig.Phases)
                             {
-                                if (phaseConfig.UseMilestones)
+                                if (phaseConfig.Type == PhaseType.MilestonePhase)
                                 {
                                     string milestonePhaseContent = ReplaceMilestonePhaseName(milestonePhaseTemplate, phaseConfig.PhaseName);
                                     CreateClassFile(scriptsPath, phaseConfig.PhaseName, milestonePhaseContent);
@@ -391,9 +393,14 @@ namespace VRG.ChapterFramework.Editor
                                         }
                                     }
                                 }
-                                else
+                                else if(phaseConfig.Type == PhaseType.Phase)
                                 {
                                     string phaseContent = ReplacePhaseName(phaseTemplate, phaseConfig.PhaseName);
+                                    CreateClassFile(scriptsPath, phaseConfig.PhaseName, phaseContent);
+                                }
+                                else if(phaseConfig.Type == PhaseType.UIPhase)
+                                {
+                                    string phaseContent = ReplaceUIPhaseName(uiPhaseTemplate, phaseConfig.PhaseName);
                                     CreateClassFile(scriptsPath, phaseConfig.PhaseName, phaseContent);
                                 }
                             }
@@ -547,7 +554,7 @@ namespace VRG.ChapterFramework.Editor
                 {
                     Transform t_phase = GenerateAndAddComponent(phase.PhaseName, phase.PhaseName, t_chapter).transform;
 
-                    if (phase.UseMilestones)
+                    if (phase.Type == PhaseType.MilestonePhase)
                     {
                         foreach (var milestone in phase.Milestones)
                         {
@@ -710,7 +717,10 @@ namespace VRG.ChapterFramework.Editor
         {
             return template.Replace("#MILESTONEPHASE_NAME#", phaseName.Replace(" ", ""));
         }
-
+        private string ReplaceUIPhaseName(string template, string phaseName)
+        {
+            return template.Replace("#UIPHASE_NAME#", phaseName.Replace(" ", ""));
+        }
         private string ReplaceComponentName(string template, string componentName)
         {
             return template.Replace("#COMPONENT_NAME#", componentName.Replace(" ", ""));
@@ -905,19 +915,27 @@ namespace VRG.ChapterFramework.Editor
         }
     }
 
+    public enum PhaseType
+    {
+        Phase,
+        MilestonePhase,
+        UIPhase
+    }
 
     [Serializable]
     public class PhaseConfig
     {
         public string PhaseName;
-        public bool UseMilestones;
 
-        [ShowIf("UseMilestones")]
+        [OnValueChanged("RefreshMilestoneCount")]
+        public PhaseType Type;
+
+        [ShowIf("@Type==PhaseType.MilestonePhase")]
         [MinValue(0)]
         [OnValueChanged(nameof(SyncMilestones))]
         public int MilestoneCount;
 
-        [ShowIf("@MilestoneCount > 0 && UseMilestones")]
+        [ShowIf("@MilestoneCount > 0")]
         public List<string> Milestones;
 
         private void SyncMilestones()
@@ -934,6 +952,13 @@ namespace VRG.ChapterFramework.Editor
             }
             while (Milestones.Count > MilestoneCount)
                 Milestones.RemoveAt(Milestones.Count - 1);
+        }
+
+        private void RefreshMilestoneCount()
+        {
+            MilestoneCount = 0;
+            Milestones.Clear();
+            Milestones = new List<string>();
         }
 
     }
