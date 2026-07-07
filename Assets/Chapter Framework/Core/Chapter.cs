@@ -93,7 +93,6 @@ namespace VRG.ChapterFramework.Core
         public override void Complete()
         {
             UnRegisterPhaseEvents();
-            Debug.Log("[ch tracker] Chapter Complete " + ChapterName);
             OnComplete?.Invoke();
         }
 
@@ -116,8 +115,6 @@ namespace VRG.ChapterFramework.Core
 
             _currentPhaseIndex++;
             _currentPhase = _phases[_currentPhaseIndex];
-
-            Debug.Log("[vcr] next phase starting " + _currentPhase);
 
             if (_currentPhase is MilestonePhase)
                 _currentPhase.Begin(0);

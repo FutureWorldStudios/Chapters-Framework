@@ -31,16 +31,12 @@ namespace VRG.ChapterFramework.Core
 
         private void HandleChapterBegun(ChapterData data)
         {
-
-            //Debug.Log($"[Force Reset] Current Chapter Index: {data.Index} | My Chapter Index: {_phase.ChapterIndex}");
-
             if (_phase != null)
             {
                 if (_phase.ChapterIndex != data.Index)
                 {
                     //Manage Calculation for resetting milestones in previous phases
                     ForceReset();
-                    //Debug.Log("[private] Force Reset on " + gameObject.name);
                 }
                 else { }
                 //Debug.Log("[private] NO Force Reset on " + gameObject.name);
@@ -65,7 +61,6 @@ namespace VRG.ChapterFramework.Core
         public override void Complete() //User driven
         {
             base.Complete();
-            Debug.Log($"[check] {gameObject.name} Completed");
             OnComplete?.Invoke();
         }
 

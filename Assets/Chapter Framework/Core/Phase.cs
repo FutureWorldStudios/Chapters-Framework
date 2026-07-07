@@ -27,8 +27,6 @@ namespace VRG.ChapterFramework.Core
         #region Unity Methods
         protected virtual void Start()
         {
-            //Debug.Log("[exec order phase] Start");
-
             _components = transform.GetComponentsInChildren<ComponentEntity>(true).ToList();
 
             ChaptersManager.OnChapterBegun += HandleChapterBegun;
@@ -42,16 +40,12 @@ namespace VRG.ChapterFramework.Core
 
         protected virtual void OnDestroy()
         {
-            //Debug.Log("[exec order phase] OnDestroy");
-
             ChaptersManager.OnChapterBegun -= HandleChapterBegun;
         }
         #endregion
 
         protected virtual void HandleChapterBegun(ChapterData chapter)
         {
-            //Debug.Log($"[testlog] Chapter Index: {chapter.Index}. CurrentChapter Index: {_currentChapterIndex}");
-
             if (_currentChapterIndex == -1)
                 return;
 
@@ -67,11 +61,6 @@ namespace VRG.ChapterFramework.Core
             {
                 ForceCompletion();
             }
-            //else if(chapter.Index == _currentChapterIndex)
-            //{
-            //    ForceReset();
-            //}
-
             _currentChapterIndex = chapter.Index;
 
             _currentChapterData = chapter;
@@ -126,8 +115,6 @@ namespace VRG.ChapterFramework.Core
 
         public void RegisterComponent(ComponentEntity component)
         {
-            Debug.Log("[exec order phase] RegisterComponent");
-
             if (!_components.Contains(component))
             {
                 _components.Add(component);

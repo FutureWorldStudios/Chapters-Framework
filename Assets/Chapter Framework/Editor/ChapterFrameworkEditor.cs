@@ -13,6 +13,8 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
 using VRG.ChapterFramework.Core;
+using UnityEditor.Compilation;
+using UnityEditor.SceneManagement;
 
 namespace VRG.ChapterFramework.Editor
 {
@@ -384,7 +386,7 @@ namespace VRG.ChapterFramework.Editor
             }
         }
 
-        private async void GenerateScripts()
+        private void GenerateScripts()
         {
             string templatesPath = Path.Combine(Application.dataPath, "Chapter Framework", "Editor", "Templates");
             
@@ -399,7 +401,7 @@ namespace VRG.ChapterFramework.Editor
             Chapters chapters = ChapterConfig;
 
            
-            await Task.Delay(1000);
+            //await Task.Delay(1000);
 
             if (chapters != null)
             {
@@ -414,7 +416,7 @@ namespace VRG.ChapterFramework.Editor
                     if (chapterConfig != null)
                     {
                         string chapterContent = ReplaceClassName(chapterTemplate, chapterConfig.ChapterName);
-                        CreateClassFile(scriptsPath, chapterConfig.ChapterName, chapterContent);
+                        CreateClassFile(scriptsPath, chapterConfig.ChapterName, chapterContent, false);
 
                         if (chapterConfig.Phases.Count > 0)
                         {
@@ -429,19 +431,19 @@ namespace VRG.ChapterFramework.Editor
                                         foreach (string milestoneName in phaseConfig.Milestones)
                                         {
                                             string milestoneContent = ReplaceMilestoneName(milestoneTemplate, milestoneName);
-                                            CreateClassFile(scriptsPath, milestoneName, milestoneContent);
+                                            CreateClassFile(scriptsPath, milestoneName, milestoneContent, false);
                                         }
                                     }
                                 }
                                 else if(phaseConfig.Type == PhaseType.Phase)
                                 {
                                     string phaseContent = ReplacePhaseName(phaseTemplate, phaseConfig.PhaseName);
-                                    CreateClassFile(scriptsPath, phaseConfig.PhaseName, phaseContent);
+                                    CreateClassFile(scriptsPath, phaseConfig.PhaseName, phaseContent, false);
                                 }
                                 else if(phaseConfig.Type == PhaseType.UIPhase)
                                 {
                                     string phaseContent = ReplaceUIPhaseName(uiPhaseTemplate, phaseConfig.PhaseName);
-                                    CreateClassFile(scriptsPath, phaseConfig.PhaseName, phaseContent);
+                                    CreateClassFile(scriptsPath, phaseConfig.PhaseName, phaseContent, false);
                                 }
                             }
                         }
@@ -451,7 +453,7 @@ namespace VRG.ChapterFramework.Editor
                 }
 
                
-                OnGenerateHierarchy += AutoGenerateHierarchy;   
+                //OnGenerateHierarchy += AutoGenerateHierarchy;   
             }
         }
 
@@ -580,7 +582,7 @@ namespace VRG.ChapterFramework.Editor
             Debug.Log("Auto generating now!");
 
 
-            await Task.Delay(5000);
+            //await Task.Delay(5000);
 
             Transform t_ChapterManager = new GameObject("ChapterManager").transform;
 
@@ -637,6 +639,13 @@ namespace VRG.ChapterFramework.Editor
                     chaptersManager.RegisterChapter(t_chapter.GetComponent<Chapter>());
                 }
             }
+
+            UnityEditor.EditorUtility.SetDirty(chaptersManager);
+            EditorSceneManager.MarkSceneDirty(t_ChapterManager.gameObject.scene);
+            Selection.activeGameObject = t_ChapterManager.gameObject;
+
+            Debug.Log(
+                $"Created and registered {chaptersManager.GetChapterCount()} chapters.");
         }
 
         private static async void TryAutoAddComponentToPhase()
@@ -936,7 +945,11 @@ namespace VRG.ChapterFramework.Editor
             }
         }
 
-        private void CreateClassFile(string folderAssetPath, string className, string content)
+        private void CreateClassFile(
+     string folderAssetPath,
+     string className,
+     string content,
+     bool importImmediately = true)
         {
             string folderFullPath = Path.GetFullPath(folderAssetPath);
 
@@ -944,24 +957,25 @@ namespace VRG.ChapterFramework.Editor
                 Directory.CreateDirectory(folderFullPath);
 
             string classNameText = className.Replace(" ", "");
-
             string fileFullPath = Path.Combine(folderFullPath, classNameText + ".cs");
 
             try
             {
                 File.WriteAllText(fileFullPath, content);
 
-                string assetPath = folderAssetPath.TrimEnd('/') + "/" + classNameText + ".cs";
-                AssetDatabase.ImportAsset(assetPath);
-                AssetDatabase.Refresh();
+                string assetPath =
+                    "Assets" +
+                    fileFullPath.Substring(Application.dataPath.Length).Replace('\\', '/');
+
+                if (importImmediately)
+                    AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceUpdate);
 
                 Debug.Log("Successfully created class file: " + assetPath);
             }
-            catch (System.Exception e)
+            catch (Exception e)
             {
                 Debug.LogError($"Failed to create class file: {e.Message}\nPath: {fileFullPath}");
             }
-
         }
 
         #endregion
@@ -1007,12 +1021,24 @@ namespace VRG.ChapterFramework.Editor
                 SessionState.SetInt(AddChaptersKey, 1);
                 SessionState.SetString(ChapterNameKey, chapterName);
 
-                GenerateComponentScript(chapterName);
+                GenerateChapterScript(chapterName);
             }
         }
 
 
 
+        private void GenerateChapterScript(string chapterName)
+        {
+            string templatesPath = Path.Combine(Application.dataPath, "Chapter Framework", "Editor", "Templates");
+            string scriptsPath = Path.Combine(Application.dataPath, "Chapter Framework", "Scripts");
+            string chapterTemplate = ReadFile(Path.Combine(templatesPath, _chapterTemplateName));
+
+            if (!string.IsNullOrEmpty(chapterTemplate))
+            {
+                string chapterContent = ReplaceClassName(chapterTemplate, chapterName);
+                CreateClassFile(scriptsPath, chapterName, chapterContent);
+            }
+        }
         private void GenerateComponentScript(string componentName)
         {
             string templatesPath = Path.Combine(Application.dataPath, "Chapter Framework", "Editor", "Templates");
